@@ -1,0 +1,57 @@
+<script>
+	import { page } from '$app/stores';
+	import LL from '$i18n/i18n-svelte';
+	import { expandCollapse } from '$ts/animation/transitions';
+	import { mLogSubmitToGallery, uLogSubmitToGallery } from '$ts/helpers/loggers';
+	import { advancedModeApp } from '$ts/stores/advancedMode';
+	import { shouldSubmitToGallery } from '$ts/stores/shouldSubmitToGallery';
+	import SubtleButton from './buttons/SubtleButton.svelte';
+
+	$: logProps = {
+		'SC - Plan': $page.data.plan,
+		'SC - Advanced Mode': $advancedModeApp
+	};
+</script>
+
+<div
+	transition:expandCollapse|local={{ duration: 300 }}
+	class="w-full flex flex-col justify-start relative"
+>
+	<div class="w-full flex items-center justify-center py-4 px-4">
+		<div
+			class="bg-c-bg-secondary shadow-lg shadow-c-shadow/[var(--o-shadow-normal)] px-5 pb-5 pt-4 rounded-2xl 
+      flex flex-col items-start justify-start gap-4 w-full max-w-[21rem]"
+		>
+			<div class="flex flex-col items-start justify-start gap-1.5">
+				<p class="text-sm font-bold text-c-on-bg/75">
+					{$LL.Home.SubmitToGalleryQuestion.Title()}
+				</p>
+				<p class="text-xs text-c-on-bg/50 leading-relaxed">
+					{$LL.Home.SubmitToGalleryQuestion.Paragraph()}
+				</p>
+			</div>
+			<div class="w-full flex gap-4">
+				<SubtleButton
+					onClick={() => {
+						shouldSubmitToGallery.set(true);
+						uLogSubmitToGallery('On');
+						mLogSubmitToGallery('On', logProps);
+					}}
+					class="flex-1"
+				>
+					<p class="py-1 text-c-success">{$LL.Shared.YesButton()}</p>
+				</SubtleButton>
+				<SubtleButton
+					onClick={() => {
+						shouldSubmitToGallery.set(false);
+						uLogSubmitToGallery('Off');
+						mLogSubmitToGallery('Off', logProps);
+					}}
+					class="flex-1"
+				>
+					<p class="py-1 text-c-danger">{$LL.Shared.NoButton()}</p>
+				</SubtleButton>
+			</div>
+		</div>
+	</div>
+</div>
