@@ -5,6 +5,7 @@ import type { IUserPlan } from '$ts/types/stripe';
 import { writable } from 'svelte/store';
 import type { TAvailableThemes } from '$ts/stores/theme';
 import { browser } from '$app/environment';
+import { PUBLIC_DEFAULT_SERVER_URL } from '$env/static/public';
 
 export const load: LayoutLoad = async (event) => {
 	let plan: IUserPlan = 'ANONYMOUS';
@@ -22,11 +23,10 @@ export const load: LayoutLoad = async (event) => {
 				plan = data.subscription_tier;
 				if (plan === 'FREE') {
 					const stripe_config = { record: { email: session.user.email, id: session.user.id } };
-					const stripe_data = await fetch('http://localhost:5173/api/stripe/create-customer', {
+					const stripe_data = await fetch(PUBLIC_DEFAULT_SERVER_URL + '/api/stripe/create-customer', {
 						method: 'POST',
 						body: JSON.stringify(stripe_config)
 					});
-					console.log(stripe_data.body);
 				}
 			} else {
 				let { data } = await supabaseClient.auth.refreshSession(session);
@@ -42,11 +42,10 @@ export const load: LayoutLoad = async (event) => {
 						plan = userData.subscription_tier;
 						if (plan === 'FREE') {
 							const stripe_config = { record: { email: session.user.email, id: session.user.id } };
-							const stripe_data = await fetch('http://localhost:5173/api/stripe/create-customer', {
+							const stripe_data = await fetch(PUBLIC_DEFAULT_SERVER_URL + '/api/stripe/create-customer', {
 								method: 'POST',
 								body: JSON.stringify(stripe_config)
 							});
-							console.log(stripe_data);
 						}
 					} else throw Error('No user found');
 				} else throw Error('No session found');

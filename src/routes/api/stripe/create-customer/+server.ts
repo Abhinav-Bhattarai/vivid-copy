@@ -10,7 +10,6 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
 export const POST: RequestHandler = async ({ request }) => {
 	const body: IBody = await request.json();
 	const record = body.record;
-	console.log(record, "record");
 	if (!record.email) {
 		return new Response(JSON.stringify({ error: 'No email provided' }));
 	}

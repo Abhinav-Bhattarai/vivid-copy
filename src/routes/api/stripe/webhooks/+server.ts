@@ -46,7 +46,7 @@ export const POST: RequestHandler = async (event) => {
 	} catch (err) {
 		return new Response((err as Error).message, { status: 400 });
 	}
-
+	console.log(retrievedEvent, "retrievedEvent");
 	const subscription = retrievedEvent.data.object as Stripe.Subscription;
 	const customerId = subscription.customer;
 	// @ts-ignore

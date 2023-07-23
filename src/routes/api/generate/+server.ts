@@ -2,31 +2,32 @@ import { availableHeights, availableInferenceSteps, availableWidths } from '$ts/
 import { supabaseAdmin } from '$ts/constants/supabaseAdmin';
 import { getSupabase } from '@supabase/auth-helpers-sveltekit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { SAGE_MAKER_URL } from '$ts/constants/sagemaker';
+import { decode } from 'base64-arraybuffer';
+import { R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, SAGEMAKER_ENDPOINT } from '$env/static/private';
+import AWS from "@aws-sdk/client-sagemaker-runtime";
+const client = new AWS.SageMakerRuntime({region: "us-east-2"});
 
 export const POST: RequestHandler = async (event) => {
 	const body: IBody = await event.request.json();
+	console.log(body, 'body');
 	const record = body.record;
-	const bucket_id = 'bucket_id ---> here';
-	console.log(record, 'record');
 	const { session } = await getSupabase(event);
-
 	let plan = 'ANONYMOUS';
-	let credits = 0;
+	let credits = 2;
 
 	if (body.record.prompt.length < 3) {
 		return new Response(JSON.stringify({ error: 'prompt length is less than 3' }));
 	}
 
-	if (parseInt(record.seed) > 1000000000) {
+	if (parseInt(record.seed) > 1000000000000) {
 		return new Response(JSON.stringify({ error: 'seeding limit reached' }));
 	}
 
-	if (availableWidths.includes(record.width) === false) {
+	if (availableWidths.includes(record.width.toString()) === false) {
 		return new Response(JSON.stringify({ error: 'width out of range' }));
 	}
 
-	if (availableHeights.includes(record.height) === false) {
+	if (availableHeights.includes(record.height.toString()) === false) {
 		return new Response(JSON.stringify({ error: 'height out of range' }));
 	}
 
@@ -34,18 +35,32 @@ export const POST: RequestHandler = async (event) => {
 		return new Response(JSON.stringify({ error: 'guidance_scale out of range' }));
 	}
 
-	if (availableInferenceSteps.includes(record.num_inference_steps) === false) {
+	if (availableInferenceSteps.includes(record.num_inference_steps.toString()) === false) {
 		return new Response(JSON.stringify({ error: 'num_inference_steps out of range' }));
 	}
 
-	if (!record.email) {
-		return new Response(JSON.stringify({ error: 'No email provided' }));
-	}
-	if (!record.id) {
-		return new Response(JSON.stringify({ error: 'No ID provided' }));
-	}
-
 	if (!session) {
+		if (credits >= 2) {
+			const config = {
+				inputs: record.prompt,
+				width: record.width,
+				height: record.height,
+				guidance_scale: record.guidance_scale,
+				num_inference_steps: record.num_inference_steps,
+				XToken: "zGI?BPUXhgWe*4Ec??yUT4^h@peYlkXy"
+			};
+			const sagemaker_response = await fetch(SAGEMAKER_ENDPOINT, {
+				method: 'POST',
+				body: JSON.stringify(config),
+				headers: {
+					"x-api-key": "EtaXSQ4Dl05Ap4ejB5NtS50fQHinQOtr3Ksg0QPR"
+				}
+			});
+			let json_sagemaker_data: string = await sagemaker_response.json();
+			console.log(json_sagemaker_data, "json_sagemaker_data")
+			const sagemaker_data: { prediction: {generated_images: Array<string>} } = JSON.parse(json_sagemaker_data);
+			return new Response(JSON.stringify({ data: { image_b64: "data:image/png;base64," + sagemaker_data.prediction.generated_images[0] }, error: false }));
+		}
 		return new Response(JSON.stringify({ error: 'Session not found' }));
 	}
 
@@ -61,7 +76,7 @@ export const POST: RequestHandler = async (event) => {
 		return new Response(JSON.stringify({ error: 'No user found' }));
 	}
 
-	if (!data.email || data.email !== record.email) {
+	if (!data.email || data.email !== session.user.email) {
 		return new Response(JSON.stringify({ error: 'Emails do not match' }));
 	}
 	let time_taken = 0;
@@ -69,20 +84,27 @@ export const POST: RequestHandler = async (event) => {
 	credits = data.credits;
 	plan = data.subscription_tier;
 	const modelID = '115756cd-52dd-4208-b06a-c151dda5b8b5';
-
+	console.log("modelID", modelID);
+	console.log(credits, "credits");
 	if (credits >= 2) {
 		const config = {
-			seed: record.seed,
-			prompt: record.prompt,
+			inputs: record.prompt,
 			width: record.width,
 			height: record.height,
 			guidance_scale: record.guidance_scale,
-			num_inference_steps: record.num_inference_steps
+			num_inference_steps: record.num_inference_steps,
+			XToken: "zGI?BPUXhgWe*4Ec??yUT4^h@peYlkXy"
 		};
-		const sagemaker_response = await fetch(SAGE_MAKER_URL, {
+		const sagemaker_response = await fetch(SAGEMAKER_ENDPOINT, {
 			method: 'POST',
-			body: JSON.stringify(config)
+			body: JSON.stringify(config),
+			headers: {
+				"x-api-key": "EtaXSQ4Dl05Ap4ejB5NtS50fQHinQOtr3Ksg0QPR"
+			}
 		});
+		let json_sagemaker_data: string = await sagemaker_response.json();
+		console.log(json_sagemaker_data, "json_sagemaker_data")
+		const sagemaker_data: { prediction: {generated_images: Array<string>} } = JSON.parse(json_sagemaker_data);
 		credits -= 2;
 		await supabaseAdmin.from('user').update({ credits }).eq('id', session.user.id);
 		let negative_prompt_data = null;
@@ -120,31 +142,34 @@ export const POST: RequestHandler = async (event) => {
 				};
 		}
 		await supabaseAdmin.from('generation').insert(generationInsert);
-		const sagemaker_data: { b64: string } = await sagemaker_response.json();
 		if (record.should_submit_to_gallery) {
-			// add to supabase bucket
-			// const buffer = ;
-			// convert base64 to buffer <0, 01>;
-			const dummy_buffer = sagemaker_data.b64;
+			const dummy_buffer = sagemaker_data.prediction.generated_images[0];
 			const fileName =
 				Math.floor(Math.random() * 1000000).toString() + '_vividgen_' + record.seed.toString();
+			// const storage = await supabaseAdmin.storage
+			// 	.from(bucket_id)
+			// 	.update(`/gallery/${fileName}`, dummy_buffer);
 			const storage = await supabaseAdmin.storage
-				.from(bucket_id)
-				.update(`/gallery/${fileName}`, dummy_buffer);
+				.from('public')
+				.upload(`all/${fileName}.png`, decode(dummy_buffer), {
+					contentType: 'image/png'
+				});
 			if (storage.error) return new Response(JSON.stringify({ error: 'Server Error' }));
 
 			if (!storage.error) {
 				return new Response(
-					JSON.stringify({ data: { image_b64: sagemaker_data.b64 }, error: false })
+					JSON.stringify({ data: { image_b64: "data:image/png;base64," + sagemaker_data.prediction.generated_images[0] }, error: false })
 				);
 			}
 		}
-		return new Response(JSON.stringify({ data: { image_b64: sagemaker_data.b64 }, error: false }));
+		console.log(sagemaker_data.prediction, "image");
+		return new Response(JSON.stringify({ data: { image_b64: "data:image/png;base64," + sagemaker_data.prediction.generated_images[0] }, error: false }));
 	}
 
-	return new Response(JSON.stringify({ error: 'Server Error' }));
+	return new Response(JSON.stringify({ error: 'Not enough creds' }));
 };
 
+// glpat-JSdtRazccGxhiHy533-b
 interface IBody {
 	record: {
 		id: string;

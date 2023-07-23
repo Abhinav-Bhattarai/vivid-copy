@@ -69,10 +69,12 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@aws-sdk/client-sagemaker-runtime": "^3.316.0",
 		"@resvg/resvg-wasm": "^2.1.0",
 		"@supabase/auth-helpers-sveltekit": "^0.8.3",
 		"@supabase/supabase-js": "^2.0.0",
 		"aws-sdk": "^2.1243.0",
+		"base64-arraybuffer": "^1.0.2",
 		"dexie": "^3.2.2",
 		"konva": "^8.3.14",
 		"mixpanel": "^0.17.0",

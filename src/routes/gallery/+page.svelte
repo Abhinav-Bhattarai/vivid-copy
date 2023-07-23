@@ -69,7 +69,7 @@
 				try {
 					const searchQuery = searchString;
 					searchStatus = 'searching';
-					const res = await fetch(`${apiBase}/gallery?search=${searchQuery}`);
+					const res = await fetch(`${apiBase}/gallery`);
 					if (res.status !== 200) {
 						throw new Error('Error getting the page');
 					}
